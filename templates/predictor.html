@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Predictor — Football Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-brand">⚽ Football Analytics</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/predictor" class="nav-link active">Match Predictor</a>
+            <a href="/players" class="nav-link">Player Dashboard</a>
+            <a href="/clusters" class="nav-link">Player Clusters</a>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <h1>Match Predictor</h1>
+        <p>Predict World Cup 2026 match outcomes using machine learning</p>
+    </div>
+
+    <div class="predictor-container">
+
+        <div class="predictor-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Home Team</label>
+                    <select id="home-team">
+                        <option value="">Select team...</option>
+                        {% for team in teams %}
+                        <option value="{{ team }}">{{ team }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="vs-badge">VS</div>
+
+                <div class="form-group">
+                    <label>Away Team</label>
+                    <select id="away-team">
+                        <option value="">Select team...</option>
+                        {% for team in teams %}
+                        <option value="{{ team }}">{{ team }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+                <label>
+                    <input type="checkbox" id="neutral-venue">
+                    Neutral venue (World Cup / tournament)
+                </label>
+            </div>
+
+            <button class="btn btn-primary btn-full" onclick="predictMatch()">
+                Predict Match
+            </button>
+        </div>
+
+        <div id="prediction-result" class="prediction-result hidden">
+
+            <div class="result-header">
+                <span id="result-home-team"></span>
+                <span class="result-vs">vs</span>
+                <span id="result-away-team"></span>
+            </div>
+
+            <div class="elo-badges">
+                <div class="elo-badge">
+                    <span id="home-elo-label"></span>
+                    <span class="elo-value" id="home-elo-value"></span>
+                </div>
+                <div class="elo-badge">
+                    <span id="away-elo-label"></span>
+                    <span class="elo-value" id="away-elo-value"></span>
+                </div>
+            </div>
+
+            <div id="prob-chart" style="height: 300px;"></div>
+
+            <div class="form-bars">
+                <div class="form-bar-item">
+                    <span id="home-form-label"></span>
+                    <div class="form-bar">
+                        <div class="form-bar-fill" id="home-form-fill"></div>
+                    </div>
+                    <span id="home-form-value"></span>
+                </div>
+                <div class="form-bar-item">
+                    <span id="away-form-label"></span>
+                    <div class="form-bar">
+                        <div class="form-bar-fill" id="away-form-fill"></div>
+                    </div>
+                    <span id="away-form-value"></span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="h2h-section">
+            <h3>Head to Head History</h3>
+            <div id="h2h-table"></div>
+        </div>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script>
+        async function predictMatch() {
+            const homeTeam = document.getElementById('home-team').value
+            const awayTeam = document.getElementById('away-team').value
+            const neutral = document.getElementById('neutral-venue').checked
+
+            if (!homeTeam || !awayTeam) {
+                alert('Please select both teams')
+                return
+            }
+
+            if (homeTeam === awayTeam) {
+                alert('Please select different teams')
+                return
+            }
+
+            const btn = document.querySelector('.btn-full')
+            btn.textContent = 'Predicting...'
+            btn.disabled = true
+
+            const response = await fetch('/api/predict', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({home_team: homeTeam, away_team: awayTeam, neutral: neutral})
+            })
+
+            const data = await response.json()
+
+            btn.textContent = 'Predict Match'
+            btn.disabled = false
+
+            // show result section
+            document.getElementById('prediction-result').classList.remove('hidden')
+
+            // team names
+            document.getElementById('result-home-team').textContent = homeTeam
+            document.getElementById('result-away-team').textContent = awayTeam
+
+            // elo badges
+            document.getElementById('home-elo-label').textContent = homeTeam + ' Elo'
+            document.getElementById('home-elo-value').textContent = data.home_elo
+            document.getElementById('away-elo-label').textContent = awayTeam + ' Elo'
+            document.getElementById('away-elo-value').textContent = data.away_elo
+
+            // form bars
+            document.getElementById('home-form-label').textContent = homeTeam + ' form'
+            document.getElementById('home-form-value').textContent = (data.home_form * 100).toFixed(0) + '%'
+            document.getElementById('home-form-fill').style.width = (data.home_form * 100) + '%'
+
+            document.getElementById('away-form-label').textContent = awayTeam + ' form'
+            document.getElementById('away-form-value').textContent = (data.away_form * 100).toFixed(0) + '%'
+            document.getElementById('away-form-fill').style.width = (data.away_form * 100) + '%'
+
+            // probability chart
+            drawProbChart(homeTeam, awayTeam, data)
+        }
+
+        function drawProbChart(homeTeam, awayTeam, data) {
+            const labels = [homeTeam + ' Win', 'Draw', awayTeam + ' Win']
+            const values = [data['Home win'], data['Draw'], data['Away win']]
+            const colors = ['#3b82f6', '#94a3b8', '#f97316']
+
+            Plotly.newPlot('prob-chart', [{
+                type: 'bar',
+                x: labels,
+                y: values,
+                marker: {color: colors},
+                text: values.map(v => v + '%'),
+                textposition: 'outside'
+            }], {
+                margin: {t: 20, b: 40, l: 40, r: 20},
+                yaxis: {range: [0, 100], title: 'Probability %'},
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                font: {color: '#e2e8f0'}
+            })
+        }
+    </script>
+
+</body>
+</html>

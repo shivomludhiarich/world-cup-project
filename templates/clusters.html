@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Clusters — Football Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-brand">⚽ Football Analytics</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/predictor" class="nav-link">Match Predictor</a>
+            <a href="/players" class="nav-link">Player Dashboard</a>
+            <a href="/clusters" class="nav-link active">Player Clusters</a>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <h1>Play Style Clusters</h1>
+        <p>K-Means clustering identifies 12 distinct play style archetypes using PCA dimensionality reduction</p>
+    </div>
+
+    <div class="clusters-container">
+
+        <div class="position-tabs">
+            <button class="tab-btn active" onclick="loadClusters('Attack', this)">Attackers</button>
+            <button class="tab-btn" onclick="loadClusters('Midfield', this)">Midfielders</button>
+            <button class="tab-btn" onclick="loadClusters('Defender', this)">Defenders</button>
+        </div>
+
+        <div id="cluster-chart" style="height: 550px;"></div>
+
+        <div class="cluster-legend" id="cluster-legend"></div>
+
+        <div class="cluster-info">
+            <h3>About this visualisation</h3>
+            <p>Each dot represents one player-season. The axes (PC1, PC2) are principal components — mathematical summaries of all features compressed into 2 dimensions for visualisation. Clusters were identified using K-Means with k=4. Hover over any dot to see the player name and stats.</p>
+        </div>
+
+    </div>
+
+    <script>
+        const clusterColors = {
+            'Elite Finisher': '#ef4444',
+            'Impact Substitute': '#f97316',
+            'Reliable Starter': '#3b82f6',
+            'Rotation Forward': '#8b5cf6',
+            'Attack Minded': '#ef4444',
+            'Aggressive Midfielder': '#f97316',
+            'Deep Lying Playmaker': '#3b82f6',
+            'Rotation Midfielder': '#8b5cf6',
+            'Attacking Fullback': '#ef4444',
+            'Aggressive CB': '#f97316',
+            'Reliable Defensive CB': '#3b82f6',
+            'Ball Playing CB': '#8b5cf6'
+        }
+
+        async function loadClusters(position, btn) {
+            // update active tab
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+            btn.classList.add('active')
+
+            const response = await fetch(`/api/clusters_data?position=${position}`)
+            const players = await response.json()
+
+            // group by cluster
+            const clusters = {}
+            players.forEach(p => {
+                if (!clusters[p.cluster_name]) clusters[p.cluster_name] = []
+                clusters[p.cluster_name].push(p)
+            })
+
+            // build plotly traces
+            const traces = Object.entries(clusters).map(([name, data]) => ({
+                type: 'scatter',
+                mode: 'markers',
+                name: name,
+                x: data.map(p => p.pc1),
+                y: data.map(p => p.pc2),
+                marker: {
+                    color: clusterColors[name] || '#64748b',
+                    size: 6,
+                    opacity: 0.7
+                },
+                text: data.map(p => 
+                    `${p.player_name}<br>Goals/90: ${p.goals_per90}<br>Assists/90: ${p.assists_per90}`
+                ),
+                hovertemplate: '%{text}<extra></extra>'
+            }))
+
+            Plotly.newPlot('cluster-chart', traces, {
+                xaxis: {title: 'PC1 — Output axis', gridcolor: '#334155'},
+                yaxis: {title: 'PC2 — Style axis', gridcolor: '#334155'},
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                font: {color: '#e2e8f0'},
+                legend: {bgcolor: 'transparent'},
+                margin: {t: 20, b: 50, l: 60, r: 20}
+            })
+        }
+
+        // load attackers by default
+        loadClusters('Attack', document.querySelector('.tab-btn'))
+    </script>
+
+</body>
+</html>

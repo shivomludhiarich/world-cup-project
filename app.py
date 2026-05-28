@@ -1,0 +1,174 @@
+from flask import Flask, render_template, request, jsonify
+import joblib
+import pickle
+import json
+import pandas as pd
+import numpy as np
+from predictor import predict_match
+from clustering import get_player_info, get_similar_players
+
+app = Flask(__name__)
+
+# ── load all models and data on startup ──────────────
+print("Loading models...")
+
+# Module A
+rf_model = joblib.load('models/match_predictor_model.pkl')
+
+with open('models/elo_ratings.pkl', 'rb') as f:
+    final_elo = pickle.load(f)
+
+with open('models/feature_cols.json', 'r') as f:
+    feature_cols = json.load(f)
+
+# Module B
+kmeans_att = joblib.load('models/kmeans_attackers.pkl')
+kmeans_mid = joblib.load('models/kmeans_midfielders.pkl')
+kmeans_def = joblib.load('models/kmeans_defenders.pkl')
+scaler_att = joblib.load('models/scaler_attackers.pkl')
+scaler_mid = joblib.load('models/scaler_midfielders.pkl')
+scaler_def = joblib.load('models/scaler_defenders.pkl')
+
+# load data
+df_matches = pd.read_csv('data/matches_full.csv')
+df_matches['date'] = pd.to_datetime(df_matches['date'])
+clustered_players = pd.read_csv('data/clustered_players.csv')
+player_stats = pd.read_csv('data/player_stats.csv')
+value_performance = pd.read_csv('data/value_performance.csv')
+valuations = pd.read_csv('data/valuations_filtered.csv')
+valuations['date'] = pd.to_datetime(valuations['date'])
+
+print("All models and data loaded!")
+
+# ── routes ────────────────────────────────────────────
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/predictor')
+def predictor():
+    # get all unique teams for dropdowns
+    teams = sorted(list(set(
+        df_matches['home_team'].tolist() + 
+        df_matches['away_team'].tolist()
+    )))
+    return render_template('predictor.html', teams=teams)
+
+@app.route('/players')
+def players():
+    return render_template('players.html')
+
+@app.route('/clusters')
+def clusters():
+    return render_template('clusters.html')
+
+# ── API endpoints ─────────────────────────────────────
+@app.route('/api/predict', methods=['POST'])
+def api_predict():
+    try:
+        data = request.json
+
+        home_team = data['home_team']
+        away_team = data['away_team']
+        neutral = data.get('neutral', False)
+
+        result = predict_match(
+            home_team,
+            away_team,
+            neutral,
+            rf_model,
+            final_elo,
+            df_matches,
+            feature_cols
+        )
+
+        print(result)
+
+        return jsonify(result)
+
+    except Exception as e:
+        print("ERROR:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/player_search', methods=['GET'])
+def api_player_search():
+    query = request.args.get('q', '')
+    if len(query) < 2:
+        return jsonify([])
+    
+    matches = player_stats[
+        player_stats['player_name'].str.contains(query, case=False, na=False)
+    ]['player_name'].unique().tolist()[:10]
+    
+    return jsonify(matches)
+
+@app.route('/api/player_stats', methods=['GET'])
+def api_player_stats():
+    player_name = request.args.get('name', '')
+    
+    stats = player_stats[
+        player_stats['player_name'] == player_name
+    ].sort_values('season', ascending=False).head(5)
+    
+    if len(stats) == 0:
+        return jsonify({'error': 'Player not found'})
+    
+    return jsonify(stats.to_dict(orient='records'))
+
+@app.route('/api/clusters_data', methods=['GET'])
+def api_clusters_data():
+    position = request.args.get('position', 'Attack')
+    
+    data = clustered_players[
+        clustered_players['position'] == position
+    ][['player_name', 'pc1', 'pc2', 'cluster_name', 
+       'goals_per90', 'assists_per90', 'minutes_per_game']].dropna()
+    
+    return jsonify(data.to_dict(orient='records'))
+
+@app.route('/api/market_value', methods=['GET'])
+def api_market_value():
+    player_name = request.args.get('name', '')
+    
+    player_id_rows = player_stats[
+        player_stats['player_name'] == player_name
+    ]['player_id']
+    
+    if len(player_id_rows) == 0:
+        return jsonify({'error': 'Player not found'})
+    
+    player_id = player_id_rows.values[0]
+    
+    val_history = valuations[
+        valuations['player_id'] == player_id
+    ].sort_values('date')[['date', 'market_value_in_eur']].copy()
+    
+    val_history['date'] = val_history['date'].dt.strftime('%Y-%m-%d')
+    val_history['market_value_in_eur'] = (
+        val_history['market_value_in_eur'] / 1e6
+    ).round(1)
+    
+    return jsonify(val_history.to_dict(orient='records'))
+
+@app.route('/api/similar_players', methods=['GET'])
+def api_similar_players():
+    player_name = request.args.get('name', '')
+    from clustering import get_similar_players
+    result = get_similar_players(player_name, clustered_players)
+    return jsonify(result)
+
+@app.route('/api/top_players', methods=['GET'])
+def api_top_players():
+    position = request.args.get('position', 'Attack')
+    metric = request.args.get('metric', 'goals_per90')
+    
+    top = value_performance[
+        value_performance['position'] == position
+    ].nlargest(20, metric)[
+        ['name', metric, 'value_millions', 'cluster_name']
+    ]
+    
+    return jsonify(top.to_dict(orient='records'))
+
+if __name__ == '__main__':
+    app.run(debug=True)

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Football Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-brand">⚽ Football Analytics</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link active">Home</a>
+            <a href="/predictor" class="nav-link">Match Predictor</a>
+            <a href="/players" class="nav-link">Player Dashboard</a>
+            <a href="/clusters" class="nav-link">Player Clusters</a>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <div class="hero-content">
+            <h1>Football Analytics Dashboard</h1>
+            <p>World Cup 2026 match predictions, player performance analysis and play style clustering using machine learning</p>
+            <div class="hero-buttons">
+                <a href="/predictor" class="btn btn-primary">Predict a Match</a>
+                <a href="/players" class="btn btn-secondary">Explore Players</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-number">11,448</div>
+            <div class="stat-label">Matches Analysed</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">61%</div>
+            <div class="stat-label">Model Accuracy</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">8,807</div>
+            <div class="stat-label">Player Seasons</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">12</div>
+            <div class="stat-label">Play Style Archetypes</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">24</div>
+            <div class="stat-label">ML Features</div>
+        </div>
+    </div>
+
+    <div class="cards-section">
+        <div class="card">
+            <div class="card-icon">🏆</div>
+            <h2>Match Predictor</h2>
+            <p>Predict World Cup 2026 match outcomes using Elo ratings, recent form, head-to-head records and 24 engineered features</p>
+            <a href="/predictor" class="btn btn-primary">Try it</a>
+        </div>
+        <div class="card">
+            <div class="card-icon">👤</div>
+            <h2>Player Dashboard</h2>
+            <p>Search any player from the top 5 European leagues, view per-90 stats, market value trends and compare players</p>
+            <a href="/players" class="btn btn-primary">Explore</a>
+        </div>
+        <div class="card">
+            <div class="card-icon">🔵</div>
+            <h2>Play Style Clusters</h2>
+            <p>K-Means clustering identifies 12 distinct play style archetypes across attackers, midfielders and defenders using PCA</p>
+            <a href="/clusters" class="btn btn-primary">Discover</a>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>Built with Python, Flask, scikit-learn, XGBoost — data from FIFA results and Transfermarkt</p>
+    </footer>
+
+</body>
+</html>
