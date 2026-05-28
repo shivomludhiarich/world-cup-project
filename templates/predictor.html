@@ -1,194 +1,366 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Match Predictor — Football Analytics</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Match Predictor — Football Analytics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
 
-    <nav class="navbar">
-        <div class="nav-brand">⚽ Football Analytics</div>
-        <div class="nav-links">
-            <a href="/" class="nav-link">Home</a>
-            <a href="/predictor" class="nav-link active">Match Predictor</a>
-            <a href="/players" class="nav-link">Player Dashboard</a>
-            <a href="/clusters" class="nav-link">Player Clusters</a>
-        </div>
-    </nav>
+<nav class="navbar">
+  <div class="nav-brand">⚽ Football Analytics</div>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/predictor" class="nav-link active">Predictor</a>
+    <a href="/players" class="nav-link">Players</a>
+    <a href="/clusters" class="nav-link">Clusters</a>
+  </div>
+</nav>
 
-    <div class="page-header">
-        <h1>Match Predictor</h1>
-        <p>Predict World Cup 2026 match outcomes using machine learning</p>
+<!-- hero -->
+<div class="predictor-hero">
+  <div class="predictor-label">Live Now · World Cup 2026</div>
+  <h1>Featured Prediction</h1>
+
+  <div class="match-card">
+    <!-- home team -->
+    <div class="team-block">
+      <div class="flag-box" id="home-flag-box">
+        <span class="flag-empty">🏳</span>
+        <img id="home-flag-img" src="" alt="" style="display:none">
+      </div>
+      <div class="team-name-display" id="home-name-display">SELECT TEAM</div>
+      <div class="score-boxes">
+        <div class="score-box" id="home-score-box">—</div>
+      </div>
+      <select class="team-select" id="home-team" onchange="onTeamChange('home')">
+        <option value="">Choose team...</option>
+        {% for team in teams %}
+        <option value="{{ team }}">{{ team }}</option>
+        {% endfor %}
+      </select>
     </div>
 
-    <div class="predictor-container">
-
-        <div class="predictor-form">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Home Team</label>
-                    <select id="home-team">
-                        <option value="">Select team...</option>
-                        {% for team in teams %}
-                        <option value="{{ team }}">{{ team }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="vs-badge">VS</div>
-
-                <div class="form-group">
-                    <label>Away Team</label>
-                    <select id="away-team">
-                        <option value="">Select team...</option>
-                        {% for team in teams %}
-                        <option value="{{ team }}">{{ team }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group checkbox-group">
-                <label>
-                    <input type="checkbox" id="neutral-venue">
-                    Neutral venue (World Cup / tournament)
-                </label>
-            </div>
-
-            <button class="btn btn-primary btn-full" onclick="predictMatch()">
-                Predict Match
-            </button>
-        </div>
-
-        <div id="prediction-result" class="prediction-result hidden">
-
-            <div class="result-header">
-                <span id="result-home-team"></span>
-                <span class="result-vs">vs</span>
-                <span id="result-away-team"></span>
-            </div>
-
-            <div class="elo-badges">
-                <div class="elo-badge">
-                    <span id="home-elo-label"></span>
-                    <span class="elo-value" id="home-elo-value"></span>
-                </div>
-                <div class="elo-badge">
-                    <span id="away-elo-label"></span>
-                    <span class="elo-value" id="away-elo-value"></span>
-                </div>
-            </div>
-
-            <div id="prob-chart" style="height: 300px;"></div>
-
-            <div class="form-bars">
-                <div class="form-bar-item">
-                    <span id="home-form-label"></span>
-                    <div class="form-bar">
-                        <div class="form-bar-fill" id="home-form-fill"></div>
-                    </div>
-                    <span id="home-form-value"></span>
-                </div>
-                <div class="form-bar-item">
-                    <span id="away-form-label"></span>
-                    <div class="form-bar">
-                        <div class="form-bar-fill" id="away-form-fill"></div>
-                    </div>
-                    <span id="away-form-value"></span>
-                </div>
-            </div>
-
-        </div>
-
-        <div class="h2h-section">
-            <h3>Head to Head History</h3>
-            <div id="h2h-table"></div>
-        </div>
-
+    <!-- center -->
+    <div class="match-center">
+      <div class="vs-badge">VS</div>
+      <label class="neutral-label">
+        <input type="checkbox" id="neutral-venue"> Neutral venue
+      </label>
     </div>
 
-    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
-    <script>
-        async function predictMatch() {
-            const homeTeam = document.getElementById('home-team').value
-            const awayTeam = document.getElementById('away-team').value
-            const neutral = document.getElementById('neutral-venue').checked
+    <!-- away team -->
+    <div class="team-block">
+      <div class="flag-box" id="away-flag-box">
+        <span class="flag-empty">🏳</span>
+        <img id="away-flag-img" src="" alt="" style="display:none">
+      </div>
+      <div class="team-name-display" id="away-name-display">SELECT TEAM</div>
+      <div class="score-boxes">
+        <div class="score-box" id="away-score-box">—</div>
+      </div>
+      <select class="team-select" id="away-team" onchange="onTeamChange('away')">
+        <option value="">Choose team...</option>
+        {% for team in teams %}
+        <option value="{{ team }}">{{ team }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
 
-            if (!homeTeam || !awayTeam) {
-                alert('Please select both teams')
-                return
-            }
+  <button class="predict-btn" id="predict-btn" onclick="predictMatch()">Lock It!</button>
+</div>
 
-            if (homeTeam === awayTeam) {
-                alert('Please select different teams')
-                return
-            }
+<!-- results -->
+<div id="results-wrap" class="results-wrap hidden">
+  <div class="results-grid">
 
-            const btn = document.querySelector('.btn-full')
-            btn.textContent = 'Predicting...'
-            btn.disabled = true
+    <!-- probability card -->
+    <div class="result-card">
+      <div class="result-card-title">Win Probability</div>
+      <div class="prob-bars">
+        <div class="prob-row">
+          <div class="prob-label-row">
+            <span id="prob-home-label">Home Win</span>
+            <span class="prob-pct" id="prob-home-pct">—</span>
+          </div>
+          <div class="prob-track"><div class="prob-fill home" id="prob-home-fill" style="width:0%"></div></div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-label-row">
+            <span>Draw</span>
+            <span class="prob-pct" id="prob-draw-pct">—</span>
+          </div>
+          <div class="prob-track"><div class="prob-fill draw" id="prob-draw-fill" style="width:0%"></div></div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-label-row">
+            <span id="prob-away-label">Away Win</span>
+            <span class="prob-pct" id="prob-away-pct">—</span>
+          </div>
+          <div class="prob-track"><div class="prob-fill away" id="prob-away-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="prob-winner" id="prob-winner"></div>
+    </div>
 
-            const response = await fetch('/api/predict', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({home_team: homeTeam, away_team: awayTeam, neutral: neutral})
-            })
+    <!-- elo card -->
+    <div class="result-card">
+      <div class="result-card-title">Team Strength · Elo Rating</div>
+      <div class="elo-vs">
+        <div class="elo-side">
+          <img id="elo-home-flag" src="" class="elo-flag-sm">
+          <div class="elo-label" id="elo-home-label"></div>
+          <div class="elo-val" id="elo-home-val"></div>
+          <div class="elo-bar-track"><div class="elo-bar-fill" id="elo-home-bar" style="width:50%"></div></div>
+        </div>
+        <div class="elo-sep">VS</div>
+        <div class="elo-side">
+          <img id="elo-away-flag" src="" class="elo-flag-sm">
+          <div class="elo-label" id="elo-away-label"></div>
+          <div class="elo-val" id="elo-away-val"></div>
+          <div class="elo-bar-track"><div class="elo-bar-fill" id="elo-away-bar" style="width:50%"></div></div>
+        </div>
+      </div>
+    </div>
 
-            const data = await response.json()
+    <!-- form card -->
+    <div class="result-card">
+      <div class="result-card-title">Recent Form · Last 10 Matches</div>
+      <div class="form-rows">
+        <div class="form-row-item">
+          <span class="form-team" id="form-home-label"></span>
+          <div class="form-track"><div class="form-fill gold" id="form-home-fill" style="width:0%"></div></div>
+          <span class="form-num" id="form-home-num"></span>
+        </div>
+        <div class="form-row-item">
+          <span class="form-team" id="form-away-label"></span>
+          <div class="form-track"><div class="form-fill blue" id="form-away-fill" style="width:0%"></div></div>
+          <span class="form-num" id="form-away-num"></span>
+        </div>
+      </div>
+    </div>
 
-            btn.textContent = 'Predict Match'
-            btn.disabled = false
+  </div>
+</div>
 
-            // show result section
-            document.getElementById('prediction-result').classList.remove('hidden')
+<!-- upcoming / quick fixtures -->
+<div class="section-wrap" style="margin-top:1rem">
+  <div class="section-header">
+    <div class="section-title">Upcoming · Group Stage</div>
+    <div class="section-divider"></div>
+  </div>
+  <div class="fixtures-grid">
+    <div class="fixture-card" onclick="quickPredict('Brazil','Argentina')">
+      <div class="fixture-teams">
+        <img src="https://flagcdn.com/w40/br.png" class="fixture-flag">
+        <span class="fixture-name">BRA vs ARG</span>
+        <img src="https://flagcdn.com/w40/ar.png" class="fixture-flag">
+      </div>
+      <div class="fixture-tag">Group A · Jun 14</div>
+    </div>
+    <div class="fixture-card" onclick="quickPredict('France','England')">
+      <div class="fixture-teams">
+        <img src="https://flagcdn.com/w40/fr.png" class="fixture-flag">
+        <span class="fixture-name">FRA vs ENG</span>
+        <img src="https://flagcdn.com/w40/gb-eng.png" class="fixture-flag">
+      </div>
+      <div class="fixture-tag">Group B · Jun 17</div>
+    </div>
+    <div class="fixture-card" onclick="quickPredict('Spain','Germany')">
+      <div class="fixture-teams">
+        <img src="https://flagcdn.com/w40/es.png" class="fixture-flag">
+        <span class="fixture-name">ESP vs GER</span>
+        <img src="https://flagcdn.com/w40/de.png" class="fixture-flag">
+      </div>
+      <div class="fixture-tag">Group C · Jun 20</div>
+    </div>
+    <div class="fixture-card" onclick="quickPredict('United States','Mexico')">
+      <div class="fixture-teams">
+        <img src="https://flagcdn.com/w40/us.png" class="fixture-flag">
+        <span class="fixture-name">USA vs MEX</span>
+        <img src="https://flagcdn.com/w40/mx.png" class="fixture-flag">
+      </div>
+      <div class="fixture-tag">Group D · Jun 22</div>
+    </div>
+  </div>
+</div>
 
-            // team names
-            document.getElementById('result-home-team').textContent = homeTeam
-            document.getElementById('result-away-team').textContent = awayTeam
+<footer class="footer">
+  Built with Python · Flask · scikit-learn · XGBoost · Plotly
+</footer>
 
-            // elo badges
-            document.getElementById('home-elo-label').textContent = homeTeam + ' Elo'
-            document.getElementById('home-elo-value').textContent = data.home_elo
-            document.getElementById('away-elo-label').textContent = awayTeam + ' Elo'
-            document.getElementById('away-elo-value').textContent = data.away_elo
+<script>
+let COUNTRY_CODES = {}
+let codesLoaded = false
 
-            // form bars
-            document.getElementById('home-form-label').textContent = homeTeam + ' form'
-            document.getElementById('home-form-value').textContent = (data.home_form * 100).toFixed(0) + '%'
-            document.getElementById('home-form-fill').style.width = (data.home_form * 100) + '%'
+fetch('/api/country_codes')
+    .then(r => r.json())
+    .then(d => { 
+        COUNTRY_CODES = d 
+        codesLoaded = true
+    })
 
-            document.getElementById('away-form-label').textContent = awayTeam + ' form'
-            document.getElementById('away-form-value').textContent = (data.away_form * 100).toFixed(0) + '%'
-            document.getElementById('away-form-fill').style.width = (data.away_form * 100) + '%'
+  function getFlagUrl(country) {
+    const code = COUNTRY_CODES[country]
+    if (!code) return ''
+    return `https://flagcdn.com/w80/${code}.png`
+  }
 
-            // probability chart
-            drawProbChart(homeTeam, awayTeam, data)
+  
+  function onTeamChange(side) {
+    const team = document.getElementById(`${side}-team`).value
+    const nameEl = document.getElementById(`${side}-name-display`)
+    const flagBox = document.getElementById(`${side}-flag-box`)
+    const flagImg = document.getElementById(`${side}-flag-img`)
+    const placeholder = flagBox.querySelector('.flag-empty')
+
+    nameEl.textContent = team ? team.toUpperCase() : 'SELECT TEAM'
+
+    // wait for codes if not loaded yet
+    const applyFlag = () => {
+        const url = getFlagUrl(team)
+        if (url && team) {
+            flagImg.src = url
+            flagImg.style.display = 'block'
+            flagImg.style.width = '100%'
+            flagImg.style.height = '100%'
+            flagImg.style.objectFit = 'cover'
+            if (placeholder) placeholder.style.display = 'none'
+            flagBox.classList.add('has-flag')
+        } else {
+            flagImg.style.display = 'none'
+            if (placeholder) placeholder.style.display = 'flex'
+            flagBox.classList.remove('has-flag')
         }
+    }
 
-        function drawProbChart(homeTeam, awayTeam, data) {
-            const labels = [homeTeam + ' Win', 'Draw', awayTeam + ' Win']
-            const values = [data['Home win'], data['Draw'], data['Away win']]
-            const colors = ['#3b82f6', '#94a3b8', '#f97316']
+    if (codesLoaded) {
+        applyFlag()
+    } else {
+        // retry until loaded
+        const interval = setInterval(() => {
+            if (codesLoaded) {
+                clearInterval(interval)
+                applyFlag()
+            }
+        }, 100)
+    }
 
-            Plotly.newPlot('prob-chart', [{
-                type: 'bar',
-                x: labels,
-                y: values,
-                marker: {color: colors},
-                text: values.map(v => v + '%'),
-                textposition: 'outside'
-            }], {
-                margin: {t: 20, b: 40, l: 40, r: 20},
-                yaxis: {range: [0, 100], title: 'Probability %'},
-                paper_bgcolor: 'transparent',
-                plot_bgcolor: 'transparent',
-                font: {color: '#e2e8f0'}
-            })
-        }
-    </script>
+    document.getElementById(`${side}-score-box`).textContent = '—'
+    document.getElementById(`${side}-score-box`).classList.remove('has-value')
+}
+
+
+  async function quickPredict(home, away) {
+    document.getElementById('home-team').value = home
+    document.getElementById('away-team').value = away
+    document.getElementById('neutral-venue').checked = true
+    onTeamChange('home')
+    onTeamChange('away')
+    await predictMatch()
+    document.getElementById('results-wrap').scrollIntoView({behavior:'smooth'})
+  }
+
+  async function predictMatch() {
+    const home = document.getElementById('home-team').value
+    const away = document.getElementById('away-team').value
+    const neutral = document.getElementById('neutral-venue').checked
+
+    if (!home || !away) { alert('Please select both teams'); return }
+    if (home === away) { alert('Please select different teams'); return }
+
+    const btn = document.getElementById('predict-btn')
+    btn.textContent = 'Predicting...'
+    btn.disabled = true
+
+    // call both APIs simultaneously
+    const [predRes, scoreRes] = await Promise.all([
+        fetch('/api/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({home_team: home, away_team: away, neutral})
+        }),
+        fetch('/api/predict_score', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({home_team: home, away_team: away, neutral})
+        })
+    ])
+
+    const predData = await predRes.json()
+    const scoreData = await scoreRes.json()
+
+    btn.textContent = 'Lock It!'
+    btn.disabled = false
+
+    renderResults(home, away, predData, scoreData)
+}
+
+  function renderResults(home, away, data, scoreData) {
+    document.getElementById('results-wrap').classList.remove('hidden')
+
+    // show predicted score in score boxes
+    const homeScoreBox = document.getElementById('home-score-box')
+    const awayScoreBox = document.getElementById('away-score-box')
+    homeScoreBox.textContent = scoreData.home_goals
+    awayScoreBox.textContent = scoreData.away_goals
+    homeScoreBox.classList.add('has-value')
+    awayScoreBox.classList.add('has-value')
+
+    // rest of your existing renderResults code stays the same...
+    const homeWin = data['Home win']
+    const draw = data['Draw']
+    const awayWin = data['Away win']
+
+    document.getElementById('prob-home-label').textContent = home + ' Win'
+    document.getElementById('prob-away-label').textContent = away + ' Win'
+    document.getElementById('prob-home-pct').textContent = homeWin + '%'
+    document.getElementById('prob-draw-pct').textContent = draw + '%'
+    document.getElementById('prob-away-pct').textContent = awayWin + '%'
+
+    setTimeout(() => {
+        document.getElementById('prob-home-fill').style.width = homeWin + '%'
+        document.getElementById('prob-draw-fill').style.width = draw + '%'
+        document.getElementById('prob-away-fill').style.width = awayWin + '%'
+    }, 50)
+
+    let winner = 'Draw most likely'
+    if (homeWin > draw && homeWin > awayWin) winner = home + ' favoured'
+    else if (awayWin > draw && awayWin > homeWin) winner = away + ' favoured'
+    document.getElementById('prob-winner').textContent = winner
+
+    const homeFlag = getFlagUrl(home)
+    const awayFlag = getFlagUrl(away)
+    if (homeFlag) document.getElementById('elo-home-flag').src = homeFlag
+    if (awayFlag) document.getElementById('elo-away-flag').src = awayFlag
+    document.getElementById('elo-home-label').textContent = home
+    document.getElementById('elo-away-label').textContent = away
+    document.getElementById('elo-home-val').textContent = data.home_elo
+    document.getElementById('elo-away-val').textContent = data.away_elo
+
+    const maxElo = Math.max(data.home_elo, data.away_elo)
+    setTimeout(() => {
+        document.getElementById('elo-home-bar').style.width = (data.home_elo / maxElo * 100) + '%'
+        document.getElementById('elo-away-bar').style.width = (data.away_elo / maxElo * 100) + '%'
+    }, 50)
+
+    document.getElementById('form-home-label').textContent = home
+    document.getElementById('form-away-label').textContent = away
+    const hf = (data.home_form * 100).toFixed(0)
+    const af = (data.away_form * 100).toFixed(0)
+    document.getElementById('form-home-num').textContent = hf + '%'
+    document.getElementById('form-away-num').textContent = af + '%'
+    setTimeout(() => {
+        document.getElementById('form-home-fill').style.width = hf + '%'
+        document.getElementById('form-away-fill').style.width = af + '%'
+    }, 50)
+}
+
+   
+</script>
 
 </body>
 </html>

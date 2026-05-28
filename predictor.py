@@ -1,5 +1,61 @@
 import pandas as pd
 import numpy as np
+from scipy.stats import poisson
+
+def predict_score(home_team, away_team, neutral, final_elo, df):
+    current_date = pd.Timestamp('2026-01-01')
+    
+    home_scored, home_conceded = get_goal_averages(home_team, current_date, df)
+    away_scored, away_conceded = get_goal_averages(away_team, current_date, df)
+    
+    avg_goals = df['home_score'].mean()
+    
+    # base expected goals — attack vs defence
+    home_xg = (home_scored / avg_goals) * (away_conceded / avg_goals) * avg_goals
+    away_xg = (away_scored / avg_goals) * (home_conceded / avg_goals) * avg_goals
+    
+    # elo adjustment — stronger team gets boost, weaker gets penalty
+    home_elo = final_elo.get(home_team, 1500)
+    away_elo = final_elo.get(away_team, 1500)
+    elo_diff = home_elo - away_elo
+    
+    # expected win probability from elo
+    home_elo_prob = 1 / (1 + 10 ** (-elo_diff / 400))
+    away_elo_prob = 1 - home_elo_prob
+    
+    # neutral elo prob is 0.5 — scale xg up or down from that
+    # if home_elo_prob = 0.8 → home gets 1.6x boost, away gets 0.4x penalty
+    home_xg = home_xg * (home_elo_prob / 0.5)
+    away_xg = away_xg * (away_elo_prob / 0.5)
+    
+    # home advantage
+    if not neutral:
+        home_xg *= 1.1
+    
+    # cap xg at realistic range
+    home_xg = max(0.3, min(home_xg, 5.0))
+    away_xg = max(0.3, min(away_xg, 5.0))
+    
+    # find most likely scoreline
+    max_goals = 6
+    best_prob = 0
+    best_score = (1, 0)
+    
+    for home_goals in range(max_goals + 1):
+        for away_goals in range(max_goals + 1):
+            prob = (poisson.pmf(home_goals, home_xg) * 
+                   poisson.pmf(away_goals, away_xg))
+            if prob > best_prob:
+                best_prob = prob
+                best_score = (home_goals, away_goals)
+    
+    return {
+        'home_goals': best_score[0],
+        'away_goals': best_score[1],
+        'home_xg': round(home_xg, 2),
+        'away_xg': round(away_xg, 2),
+        'probability': round(best_prob * 100, 1)
+    }
 
 def get_recent_form(team, date, df, n=10):
     team_matches = df[

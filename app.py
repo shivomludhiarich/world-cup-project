@@ -6,6 +6,60 @@ import pandas as pd
 import numpy as np
 from predictor import predict_match
 from clustering import get_player_info, get_similar_players
+from predictor import predict_score
+
+
+# add this dictionary to app.py at the top after imports
+COUNTRY_CODES = {
+    'Afghanistan': 'af', 'Albania': 'al', 'Algeria': 'dz', 'Angola': 'ao',
+    'Argentina': 'ar', 'Armenia': 'am', 'Australia': 'au', 'Austria': 'at',
+    'Azerbaijan': 'az', 'Bahrain': 'bh', 'Bangladesh': 'bd', 'Belarus': 'by',
+    'Belgium': 'be', 'Bolivia': 'bo', 'Bosnia and Herzegovina': 'ba',
+    'Brazil': 'br', 'Bulgaria': 'bg', 'Burkina Faso': 'bf', 'Cameroon': 'cm',
+    'Canada': 'ca', 'Chile': 'cl', 'China': 'cn', 'Colombia': 'co',
+    'Congo': 'cg', 'Costa Rica': 'cr', 'Croatia': 'hr', 'Cuba': 'cu',
+    'Czech Republic': 'cz', 'Denmark': 'dk', 'Ecuador': 'ec', 'Egypt': 'eg',
+    'England': 'gb-eng', 'Estonia': 'ee', 'Ethiopia': 'et', 'Finland': 'fi',
+    'France': 'fr', 'Gabon': 'ga', 'Georgia': 'ge', 'Germany': 'de',
+    'Ghana': 'gh', 'Greece': 'gr', 'Guatemala': 'gt', 'Guinea': 'gn',
+    'Honduras': 'hn', 'Hungary': 'hu', 'Iceland': 'is', 'India': 'in',
+    'Indonesia': 'id', 'Iran': 'ir', 'Iraq': 'iq', 'Ireland': 'ie',
+    'Israel': 'il', 'Italy': 'it', 'Ivory Coast': 'ci', 'Jamaica': 'jm',
+    'Japan': 'jp', 'Jordan': 'jo', 'Kazakhstan': 'kz', 'Kenya': 'ke',
+    'Kosovo': 'xk', 'Kuwait': 'kw', 'Kyrgyzstan': 'kg', 'Latvia': 'lv',
+    'Lebanon': 'lb', 'Libya': 'ly', 'Lithuania': 'lt', 'Luxembourg': 'lu',
+    'Mali': 'ml', 'Malta': 'mt', 'Mexico': 'mx', 'Moldova': 'md',
+    'Montenegro': 'me', 'Morocco': 'ma', 'Mozambique': 'mz', 'Netherlands': 'nl',
+    'New Zealand': 'nz', 'Nicaragua': 'ni', 'Nigeria': 'ng',
+    'North Korea': 'kp', 'North Macedonia': 'mk', 'Norway': 'no', 'Oman': 'om',
+    'Pakistan': 'pk', 'Palestine': 'ps', 'Panama': 'pa', 'Paraguay': 'py',
+    'Peru': 'pe', 'Philippines': 'ph', 'Poland': 'pl', 'Portugal': 'pt',
+    'Qatar': 'qa', 'Romania': 'ro', 'Russia': 'ru', 'Rwanda': 'rw',
+    'Saudi Arabia': 'sa', 'Scotland': 'gb-sct', 'Senegal': 'sn', 'Serbia': 'rs',
+    'Slovakia': 'sk', 'Slovenia': 'si', 'Somalia': 'so', 'South Africa': 'za',
+    'South Korea': 'kr', 'Spain': 'es', 'Sudan': 'sd', 'Sweden': 'se',
+    'Switzerland': 'ch', 'Syria': 'sy', 'Taiwan': 'tw', 'Tajikistan': 'tj',
+    'Tanzania': 'tz', 'Thailand': 'th', 'Togo': 'tg', 'Trinidad and Tobago': 'tt',
+    'Tunisia': 'tn', 'Turkey': 'tr', 'Turkmenistan': 'tm', 'Uganda': 'ug',
+    'Ukraine': 'ua', 'United Arab Emirates': 'ae', 'United States': 'us',
+    'Uruguay': 'uy', 'Uzbekistan': 'uz', 'Venezuela': 've', 'Vietnam': 'vn',
+    'Wales': 'gb-wls', 'Yemen': 'ye', 'Zambia': 'zm', 'Zimbabwe': 'zw',
+    'USA': 'us', 'South Sudan': 'ss', 'DR Congo': 'cd', 'Cape Verde': 'cv',
+    'Equatorial Guinea': 'gq', 'Eswatini': 'sz', 'Faroe Islands': 'fo',
+    'Finland': 'fi', 'Haiti': 'ht', 'Kosovo': 'xk', 'Liberia': 'lr',
+    'Malawi': 'mw', 'Mauritania': 'mr', 'Namibia': 'na', 'Niger': 'ne',
+    'Sierra Leone': 'sl', 'Cyprus': 'cy', 'El Salvador': 'sv',
+    'Liechtenstein': 'li', 'Andorra': 'ad', 'San Marino': 'sm',
+    'Northern Ireland': 'gb-nir', 'New Caledonia': 'nc',
+    'Central African Republic': 'cf', 'Benin': 'bj', 'Burundi': 'bi',
+    'Comoros': 'km', 'Djibouti': 'dj', 'Eritrea': 'er', 'Gambia': 'gm',
+    'Guinea-Bissau': 'gw', 'Lesotho': 'ls', 'Madagascar': 'mg',
+    'Mauritius': 'mu', 'São Tomé and Príncipe': 'st', 'Seychelles': 'sc',
+    'Chad': 'td', 'Congo DR': 'cd', 'Côte d\'Ivoire': 'ci'
+}
+
+
+
 
 app = Flask(__name__)
 
@@ -41,6 +95,14 @@ valuations['date'] = pd.to_datetime(valuations['date'])
 print("All models and data loaded!")
 
 # ── routes ────────────────────────────────────────────
+@app.route('/api/country_codes', methods=['GET'])
+def api_country_code():
+    country = request.args.get('country', '')
+    if country:
+        code = COUNTRY_CODES.get(country, '').lower()
+        return jsonify({'code': code})
+    return jsonify({k: v.lower() for k, v in COUNTRY_CODES.items()})
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -52,7 +114,19 @@ def predictor():
         df_matches['home_team'].tolist() + 
         df_matches['away_team'].tolist()
     )))
-    return render_template('predictor.html', teams=teams)
+    return render_template('predictor.html', teams=teams, country_codes=COUNTRY_CODES)
+
+@app.route('/api/predict_score', methods=['POST'])
+def api_predict_score():
+    data = request.json
+    result = predict_score(
+        data['home_team'],
+        data['away_team'],
+        data.get('neutral', False),
+        final_elo,
+        df_matches
+    )
+    return jsonify(result)
 
 @app.route('/players')
 def players():
@@ -113,7 +187,14 @@ def api_player_stats():
     if len(stats) == 0:
         return jsonify({'error': 'Player not found'})
     
-    return jsonify(stats.to_dict(orient='records'))
+    records = stats.to_dict(orient='records')
+    player_cluster = clustered_players[clustered_players['player_name'] == player_name]
+    cluster_name = player_cluster.iloc[0]['cluster_name'] if len(player_cluster) > 0 else 'Unknown'
+    
+    for r in records:
+        r['cluster_name'] = cluster_name
+        
+    return jsonify(records)
 
 @app.route('/api/clusters_data', methods=['GET'])
 def api_clusters_data():
@@ -169,6 +250,18 @@ def api_top_players():
     ]
     
     return jsonify(top.to_dict(orient='records'))
+
+
+@app.route('/debug/teams')
+def debug_teams():
+    teams = sorted(list(set(
+        df_matches['home_team'].tolist() + 
+        df_matches['away_team'].tolist()
+    )))
+    # check which teams have country codes
+    missing = [t for t in teams if t not in COUNTRY_CODES]
+    matched = [t for t in teams if t in COUNTRY_CODES]
+    return jsonify({'matched': matched[:10], 'missing': missing[:20]})
 
 if __name__ == '__main__':
     app.run(debug=True)
