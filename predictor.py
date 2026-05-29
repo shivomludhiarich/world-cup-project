@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 
-def predict_score(home_team, away_team, neutral, final_elo, df):
+def predict_score(home_team, away_team, neutral, final_elo, df, home_win_prob, away_win_prob):
     current_date = pd.Timestamp('2026-01-01')
     
     home_scored, home_conceded = get_goal_averages(home_team, current_date, df)
@@ -10,29 +10,25 @@ def predict_score(home_team, away_team, neutral, final_elo, df):
     
     avg_goals = df['home_score'].mean()
     
-    # base expected goals — attack vs defence
+    # base expected goals from attack vs defence
     home_xg = (home_scored / avg_goals) * (away_conceded / avg_goals) * avg_goals
     away_xg = (away_scored / avg_goals) * (home_conceded / avg_goals) * avg_goals
     
-    # elo adjustment — stronger team gets boost, weaker gets penalty
-    home_elo = final_elo.get(home_team, 1500)
-    away_elo = final_elo.get(away_team, 1500)
-    elo_diff = home_elo - away_elo
+    # use RF win probabilities to adjust xg
+    # convert win probs to 0-1 scale ignoring draw
+    total = home_win_prob + away_win_prob
+    home_strength = home_win_prob / total  # e.g. 0.30
+    away_strength = away_win_prob / total  # e.g. 0.70
     
-    # expected win probability from elo
-    home_elo_prob = 1 / (1 + 10 ** (-elo_diff / 400))
-    away_elo_prob = 1 - home_elo_prob
-    
-    # neutral elo prob is 0.5 — scale xg up or down from that
-    # if home_elo_prob = 0.8 → home gets 1.6x boost, away gets 0.4x penalty
-    home_xg = home_xg * (home_elo_prob / 0.5)
-    away_xg = away_xg * (away_elo_prob / 0.5)
+    # adjust xg — stronger team gets boost, weaker gets penalty
+    home_xg = home_xg * (home_strength / 0.5)
+    away_xg = away_xg * (away_strength / 0.5)
     
     # home advantage
     if not neutral:
         home_xg *= 1.1
     
-    # cap xg at realistic range
+    # cap at realistic range
     home_xg = max(0.3, min(home_xg, 5.0))
     away_xg = max(0.3, min(away_xg, 5.0))
     

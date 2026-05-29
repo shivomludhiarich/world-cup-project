@@ -264,7 +264,7 @@ fetch('/api/country_codes')
     document.getElementById('results-wrap').scrollIntoView({behavior:'smooth'})
   }
 
-  async function predictMatch() {
+async function predictMatch() {
     const home = document.getElementById('home-team').value
     const away = document.getElementById('away-team').value
     const neutral = document.getElementById('neutral-venue').checked
@@ -276,41 +276,32 @@ fetch('/api/country_codes')
     btn.textContent = 'Predicting...'
     btn.disabled = true
 
-    // call both APIs simultaneously
-    const [predRes, scoreRes] = await Promise.all([
-        fetch('/api/predict', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({home_team: home, away_team: away, neutral})
-        }),
-        fetch('/api/predict_score', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({home_team: home, away_team: away, neutral})
-        })
-    ])
-
-    const predData = await predRes.json()
-    const scoreData = await scoreRes.json()
+    // single API call now
+    const res = await fetch('/api/predict', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({home_team: home, away_team: away, neutral})
+    })
+    const data = await res.json()
 
     btn.textContent = 'Lock It!'
     btn.disabled = false
 
-    renderResults(home, away, predData, scoreData)
+    renderResults(home, away, data)
 }
 
-  function renderResults(home, away, data, scoreData) {
+  function renderResults(home, away, data) {
     document.getElementById('results-wrap').classList.remove('hidden')
 
-    // show predicted score in score boxes
+    // score boxes — now consistent with RF prediction
     const homeScoreBox = document.getElementById('home-score-box')
     const awayScoreBox = document.getElementById('away-score-box')
-    homeScoreBox.textContent = scoreData.home_goals
-    awayScoreBox.textContent = scoreData.away_goals
+    homeScoreBox.textContent = data.home_goals
+    awayScoreBox.textContent = data.away_goals
     homeScoreBox.classList.add('has-value')
     awayScoreBox.classList.add('has-value')
 
-    // rest of your existing renderResults code stays the same...
+    // probability bars
     const homeWin = data['Home win']
     const draw = data['Draw']
     const awayWin = data['Away win']
@@ -332,6 +323,7 @@ fetch('/api/country_codes')
     else if (awayWin > draw && awayWin > homeWin) winner = away + ' favoured'
     document.getElementById('prob-winner').textContent = winner
 
+    // elo
     const homeFlag = getFlagUrl(home)
     const awayFlag = getFlagUrl(away)
     if (homeFlag) document.getElementById('elo-home-flag').src = homeFlag
@@ -347,6 +339,7 @@ fetch('/api/country_codes')
         document.getElementById('elo-away-bar').style.width = (data.away_elo / maxElo * 100) + '%'
     }, 50)
 
+    // form
     document.getElementById('form-home-label').textContent = home
     document.getElementById('form-away-label').textContent = away
     const hf = (data.home_form * 100).toFixed(0)

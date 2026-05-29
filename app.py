@@ -107,6 +107,8 @@ def api_country_code():
 def home():
     return render_template('index.html')
 
+
+
 @app.route('/predictor')
 def predictor():
     # get all unique teams for dropdowns
@@ -116,17 +118,6 @@ def predictor():
     )))
     return render_template('predictor.html', teams=teams, country_codes=COUNTRY_CODES)
 
-@app.route('/api/predict_score', methods=['POST'])
-def api_predict_score():
-    data = request.json
-    result = predict_score(
-        data['home_team'],
-        data['away_team'],
-        data.get('neutral', False),
-        final_elo,
-        df_matches
-    )
-    return jsonify(result)
 
 @app.route('/players')
 def players():
@@ -139,30 +130,32 @@ def clusters():
 # ── API endpoints ─────────────────────────────────────
 @app.route('/api/predict', methods=['POST'])
 def api_predict():
-    try:
-        data = request.json
-
-        home_team = data['home_team']
-        away_team = data['away_team']
-        neutral = data.get('neutral', False)
-
-        result = predict_match(
-            home_team,
-            away_team,
-            neutral,
-            rf_model,
-            final_elo,
-            df_matches,
-            feature_cols
-        )
-
-        print(result)
-
-        return jsonify(result)
-
-    except Exception as e:
-        print("ERROR:", e)
-        return jsonify({"error": str(e)}), 500
+    data = request.json
+    home_team = data['home_team']
+    away_team = data['away_team']
+    neutral = data.get('neutral', False)
+    
+    # step 1 — RF win probability
+    result = predict_match(
+        home_team, away_team, neutral,
+        rf_model, final_elo, df_matches, feature_cols
+    )
+    
+    # step 2 — Poisson score using RF probabilities
+    score = predict_score(
+        home_team, away_team, neutral,
+        final_elo, df_matches,
+        result['Home win'],   # pass RF probs directly
+        result['Away win']
+    )
+    
+    # merge both into one response
+    result['home_goals'] = score['home_goals']
+    result['away_goals'] = score['away_goals']
+    result['home_xg'] = score['home_xg']
+    result['away_xg'] = score['away_xg']
+    
+    return jsonify(result)
 
 @app.route('/api/player_search', methods=['GET'])
 def api_player_search():
