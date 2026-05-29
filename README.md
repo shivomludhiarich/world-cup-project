@@ -4,7 +4,7 @@ A football analytics and prediction platform built using machine learning and da
 
 ## Features
 
-* Predicts match outcomes (Win / Draw / Loss probabilities) between two national teams using **XGBoost**
+* Predicts match outcomes (Win / Draw / Loss probabilities) between two national teams using **Random Forest**
 * Predicts expected scorelines using **Poisson Regression**
 * Supports both **neutral** and **non-neutral venue** predictions
 * Clusters football players into different playstyle categories using **K-Means Clustering**
@@ -25,7 +25,7 @@ A football analytics and prediction platform built using machine learning and da
 
 ## Machine Learning Models Used
 
-* XGBoost Classifier
+* Random Forest
 * Poisson Regressor
 * K-Means Clustering
 
