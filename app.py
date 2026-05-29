@@ -157,6 +157,54 @@ def api_predict():
     
     return jsonify(result)
 
+@app.route('/api/h2h', methods=['POST'])
+def api_h2h():
+    data = request.json
+    home_team = data['home_team']
+    away_team = data['away_team']
+    
+    # get all matches between these two teams
+    h2h = df_matches[
+        ((df_matches['home_team'] == home_team) & (df_matches['away_team'] == away_team)) |
+        ((df_matches['home_team'] == away_team) & (df_matches['away_team'] == home_team))
+    ].sort_values('date', ascending=False).head(5)
+    
+    if len(h2h) == 0:
+        return jsonify({'message': 'no record found'})
+    
+    results = []
+    for _, row in h2h.iterrows():
+        # determine result from perspective of home_team
+        if row['home_team'] == home_team:
+            if row['home_score'] > row['away_score']:
+                result = 'W'
+            elif row['home_score'] < row['away_score']:
+                result = 'L'
+            else:
+                result = 'D'
+            score = f"{int(row['home_score'])} - {int(row['away_score'])}"
+        else:
+            if row['away_score'] > row['home_score']:
+                result = 'W'
+            elif row['away_score'] < row['home_score']:
+                result = 'L'
+            else:
+                result = 'D'
+            score = f"{int(row['away_score'])} - {int(row['home_score'])}"
+        
+        results.append({
+            'date': pd.to_datetime(row['date']).strftime('%d %b %Y'),
+            'home_team': row['home_team'],
+            'away_team': row['away_team'],
+            'home_score': int(row['home_score']),
+            'away_score': int(row['away_score']),
+            'score': score,
+            'result': result,
+            'tournament': row['tournament']
+        })
+    
+    return jsonify(results)
+
 @app.route('/api/player_search', methods=['GET'])
 def api_player_search():
     query = request.args.get('q', '')

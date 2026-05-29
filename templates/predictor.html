@@ -146,6 +146,18 @@
   </div>
 </div>
 
+<!-- h2h section -->
+<div id="h2h-wrap" class="section-wrap hidden">
+    <div class="section-header">
+        <div class="section-title" id="h2h-title">Head to Head</div>
+        <div class="section-divider"></div>
+    </div>
+    <div class="h2h-card">
+        <div class="h2h-summary" id="h2h-summary"></div>
+        <div class="h2h-list" id="h2h-list"></div>
+    </div>
+</div>
+
 <!-- upcoming / quick fixtures -->
 <div class="section-wrap" style="margin-top:1rem">
   <div class="section-header">
@@ -276,18 +288,80 @@ async function predictMatch() {
     btn.textContent = 'Predicting...'
     btn.disabled = true
 
-    // single API call now
-    const res = await fetch('/api/predict', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({home_team: home, away_team: away, neutral})
-    })
-    const data = await res.json()
+    // call prediction and h2h simultaneously
+    const [predRes, h2hRes] = await Promise.all([
+        fetch('/api/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({home_team: home, away_team: away, neutral})
+        }),
+        fetch('/api/h2h', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({home_team: home, away_team: away})
+        })
+    ])
+
+    const predData = await predRes.json()
+    const h2hData = await h2hRes.json()
 
     btn.textContent = 'Lock It!'
     btn.disabled = false
 
-    renderResults(home, away, data)
+    renderResults(home, away, predData)
+    renderH2H(home, away, h2hData)
+}
+
+function renderH2H(home, away, matches) {
+    const wrap = document.getElementById('h2h-wrap')
+    wrap.classList.remove('hidden')
+    
+    if (!Array.isArray(matches) || matches.length === 0) {
+        const msg = (matches && matches.message) ? matches.message : 'no record found'
+        document.getElementById('h2h-title').textContent = `${home} vs ${away} · Head to Head`
+        document.getElementById('h2h-summary').innerHTML = ''
+        document.getElementById('h2h-list').innerHTML = `
+            <div style="text-align:center; padding: 2rem; color: #888; font-size: 0.95rem; font-weight: 500;">
+                ⚠️ ${msg}
+            </div>
+        `
+        return
+    }
+
+    document.getElementById('h2h-title').textContent = `${home} vs ${away} · Last ${matches.length} Meetings`
+
+    // calculate summary
+    let wins = 0, draws = 0, losses = 0
+    matches.forEach(m => {
+        if (m.result === 'W') wins++
+        else if (m.result === 'D') draws++
+        else losses++
+    })
+
+    document.getElementById('h2h-summary').innerHTML = `
+        <div class="h2h-stat">
+            <div class="h2h-stat-number wins">${wins}</div>
+            <div class="h2h-stat-label">${home} Wins</div>
+        </div>
+        <div class="h2h-stat">
+            <div class="h2h-stat-number draws">${draws}</div>
+            <div class="h2h-stat-label">Draws</div>
+        </div>
+        <div class="h2h-stat">
+            <div class="h2h-stat-number losses">${losses}</div>
+            <div class="h2h-stat-label">${away} Wins</div>
+        </div>
+    `
+
+    document.getElementById('h2h-list').innerHTML = matches.map(m => `
+        <div class="h2h-row">
+            <div class="h2h-date">${m.date}</div>
+            <div class="h2h-teams">${m.home_team} vs ${m.away_team}</div>
+            <div class="h2h-score">${m.home_score} - ${m.away_score}</div>
+            <div class="h2h-result ${m.result}">${m.result}</div>
+            <div class="h2h-tournament">${m.tournament}</div>
+        </div>
+    `).join('')
 }
 
   function renderResults(home, away, data) {
@@ -351,8 +425,6 @@ async function predictMatch() {
         document.getElementById('form-away-fill').style.width = af + '%'
     }, 50)
 }
-
-   
 </script>
 
 </body>
